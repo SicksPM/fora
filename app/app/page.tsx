@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { LogoutButton } from '@/components/logout-button'
 
 export default async function AppPage() {
   const supabase = await createClient()
@@ -23,27 +22,9 @@ export default async function AppPage() {
     redirect('/login')
   }
 
-  return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto max-w-6xl px-6 py-16">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">FORA</h1>
-            <p className="mt-1 text-sm text-slate-500">Application shell</p>
-          </div>
-          <LogoutButton />
-        </div>
+  if (profile.access_role === 'admin') {
+    redirect('/app/admin')
+  }
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 shadow-sm">
-          <h2 className="text-2xl font-semibold">Welcome to FORA</h2>
-          <p className="mt-4 text-slate-600">
-            Signed in as {profile.full_name}
-          </p>
-          <p className="mt-2 text-sm text-slate-500">
-            Access role: {profile.access_role}
-          </p>
-        </div>
-      </div>
-    </main>
-  )
+  redirect('/app/employee')
 }
