@@ -173,7 +173,7 @@ export function AddShiftForm({
           type="text"
           value={shiftLabel}
           onChange={(e) => setShiftLabel(e.target.value)}
-          placeholder="Example: 6AM - 2PM / Morning Joe"
+          placeholder="Example: 6AM - 2PM / Morning News Now"
           className="w-full rounded-lg border border-slate-300 px-3 py-2"
           required
         />

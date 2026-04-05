@@ -111,6 +111,18 @@ export default async function EmployeeShiftsPage() {
     shifts = (shiftsData ?? []) as ShiftRow[]
   }
 
+  shifts = shifts.filter((shift) => {
+    if (shift.status === 'confirmed') {
+      return shift.confirmed_user_id === user.id
+    }
+
+    if (shift.status === 'pending_hold') {
+      return shift.held_by === user.id
+    }
+
+    return true
+  })
+
   const roleGroupIds = [...new Set(shifts.map((shift) => shift.role_group_id))]
 
   let roleGroups: RoleGroupRow[] = []
@@ -194,6 +206,7 @@ export default async function EmployeeShiftsPage() {
             {shifts.map((shift) => {
               const isNotAvailable = notAvailableSet.has(shift.id)
               const isHeldByUser = shift.held_by === user.id
+              const isConfirmedForUser = shift.confirmed_user_id === user.id
               const isClaimable = shift.status === 'open' && !isNotAvailable
 
               return (
@@ -225,10 +238,10 @@ export default async function EmployeeShiftsPage() {
                           Status:{' '}
                           {isNotAvailable
                             ? 'Not Available'
+                            : isConfirmedForUser && shift.status === 'confirmed'
+                            ? 'Confirmed (You)'
                             : isHeldByUser && shift.status === 'pending_hold'
                             ? 'Pending Hold (You)'
-                            : shift.status === 'pending_hold'
-                            ? 'Pending Hold'
                             : shift.status}
                         </span>
                       </div>
