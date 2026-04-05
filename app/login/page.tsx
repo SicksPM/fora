@@ -1,38 +1,33 @@
-'use client'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+async function login(formData: FormData) {
+  'use server'
 
-export default function LoginPage() {
-  const router = useRouter()
-  const supabase = createClient()
+  const email = String(formData.get('email') || '')
+  const password = String(formData.get('password') || '')
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const supabase = await createClient()
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    setLoading(false)
-
-    if (error) {
-      setError(error.message)
-      return
-    }
-
-    router.push('/app')
-    router.refresh()
+  if (error) {
+    redirect('/login?error=invalid-login')
   }
+
+  redirect('/app')
+}
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const params = await searchParams
+  const hasError = params?.error === 'invalid-login'
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -43,14 +38,13 @@ export default function LoginPage() {
             Sign in to access the platform.
           </p>
 
-          <form onSubmit={handleLogin} className="mt-8 space-y-4">
+          <form action={login} className="mt-8 space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium">Email</label>
               <input
                 type="email"
+                name="email"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-slate-500"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
@@ -59,23 +53,23 @@ export default function LoginPage() {
               <label className="mb-1 block text-sm font-medium">Password</label>
               <input
                 type="password"
+                name="password"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-slate-500"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
 
-            {error ? (
-              <p className="text-sm text-red-600">{error}</p>
+            {hasError ? (
+              <p className="text-sm text-red-600">
+                Invalid email or password.
+              </p>
             ) : null}
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              Sign In
             </button>
           </form>
         </div>

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { LogoutButton } from '@/components/logout-button'
 
@@ -34,7 +35,7 @@ export default async function EmployeePage() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">FORA</h1>
-            <p className="mt-1 text-sm text-slate-500">Employee dashboard shell</p>
+            <p className="mt-1 text-sm text-slate-500">Employee dashboard</p>
           </div>
           <LogoutButton />
         </div>
@@ -47,6 +48,15 @@ export default async function EmployeePage() {
           <p className="mt-2 text-sm text-slate-500">
             Access role: {profile.access_role}
           </p>
+
+          <div className="mt-8">
+            <Link
+              href="/app/employee/shifts"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              View My Shifts
+            </Link>
+          </div>
         </div>
       </div>
     </main>

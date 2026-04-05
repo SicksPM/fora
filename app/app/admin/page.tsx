@@ -7,20 +7,21 @@ export default async function AdminPage() {
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser()
 
-  if (!user) {
+  if (userError || !user) {
     redirect('/login')
   }
 
-  const { data: profile, error } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('id, full_name, access_role, is_active')
     .eq('id', user.id)
     .maybeSingle()
 
   if (
-    error ||
+    profileError ||
     !profile ||
     !profile.is_active ||
     profile.access_role !== 'admin'
