@@ -12,6 +12,7 @@ type Shift = {
   employee_off: string
   role_group_id: number
   status: string
+  notes: string | null
 }
 
 type Profile = {
@@ -27,6 +28,11 @@ type RoleGroup = {
 type NotAvailableCount = {
   shift_id: number
   count: number
+}
+
+type NotAvailableRow = {
+  shift_id: number
+  user_id: string
 }
 
 export default async function AdminReviewPage() {
@@ -56,7 +62,7 @@ export default async function AdminReviewPage() {
 
   const { data: shiftsData, error: shiftsError } = await supabase
     .from('shifts')
-    .select('id, shift_label, shift_date, held_by, employee_off, role_group_id, status')
+    .select('id, shift_label, shift_date, held_by, employee_off, role_group_id, status, notes')
     .eq('status', 'pending_hold')
     .order('shift_date', { ascending: true })
 
@@ -70,17 +76,51 @@ export default async function AdminReviewPage() {
 
   const shifts: Shift[] = (shiftsData ?? []) as Shift[]
 
-  let profileMap = new Map<string, string>()
+  const shiftIds = shifts.map((shift) => shift.id)
 
-  const userIds = [
+  let notAvailableRows: NotAvailableRow[] = []
+  let notAvailableMap = new Map<number, number>()
+
+  if (shiftIds.length > 0) {
+    const { data: countsData } = await supabase
+      .from('shift_not_available_counts')
+      .select('shift_id, count')
+      .in('shift_id', shiftIds)
+
+    const counts: NotAvailableCount[] = (countsData ?? []).map((row: any) => ({
+      shift_id: row.shift_id,
+      count: Number(row.count),
+    }))
+
+    notAvailableMap = new Map(
+      counts.map((countRow) => [countRow.shift_id, countRow.count])
+    )
+
+    const { data: notAvailableData } = await supabase
+      .from('shift_not_available')
+      .select('shift_id, user_id')
+      .in('shift_id', shiftIds)
+
+    notAvailableRows = (notAvailableData ?? []) as NotAvailableRow[]
+  }
+
+  const claimantIds = [
     ...new Set(shifts.map((s) => s.held_by).filter(Boolean)),
   ] as string[]
 
-  if (userIds.length > 0) {
+  const notAvailableUserIds = [
+    ...new Set(notAvailableRows.map((row) => row.user_id)),
+  ]
+
+  const allProfileIds = [...new Set([...claimantIds, ...notAvailableUserIds])]
+
+  let profileMap = new Map<string, string>()
+
+  if (allProfileIds.length > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name')
-      .in('id', userIds)
+      .in('id', allProfileIds)
 
     const profilesTyped: Profile[] = (profiles ?? []) as Profile[]
 
@@ -102,24 +142,13 @@ export default async function AdminReviewPage() {
     roleGroupMap = new Map(roleGroupsTyped.map((role) => [role.id, role.label]))
   }
 
-  let notAvailableMap = new Map<number, number>()
+  const notAvailableNamesByShift = new Map<number, string[]>()
 
-  const shiftIds = shifts.map((shift) => shift.id)
-
-  if (shiftIds.length > 0) {
-    const { data: countsData } = await supabase
-      .from('shift_not_available_counts')
-      .select('shift_id, count')
-      .in('shift_id', shiftIds)
-
-    const counts: NotAvailableCount[] = (countsData ?? []).map((row: any) => ({
-      shift_id: row.shift_id,
-      count: Number(row.count),
-    }))
-
-    notAvailableMap = new Map(
-      counts.map((countRow) => [countRow.shift_id, countRow.count])
-    )
+  for (const row of notAvailableRows) {
+    const current = notAvailableNamesByShift.get(row.shift_id) ?? []
+    const name = profileMap.get(row.user_id) ?? 'Unknown'
+    current.push(name)
+    notAvailableNamesByShift.set(row.shift_id, current)
   }
 
   return (
@@ -148,45 +177,61 @@ export default async function AdminReviewPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {shifts.map((shift) => (
-            <div
-              key={shift.id}
-              className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"
-            >
-              <div className="space-y-1">
-                <p className="text-lg font-semibold text-slate-900">
-                  {shift.shift_label}
-                </p>
+          {shifts.map((shift) => {
+            const notAvailableNames = notAvailableNamesByShift.get(shift.id) ?? []
 
-                <p className="text-sm text-slate-700">
-                  {shift.shift_date}
-                </p>
+            return (
+              <div
+                key={shift.id}
+                className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"
+              >
+                <div className="space-y-1">
+                  <p className="text-lg font-semibold text-slate-900">
+                    {shift.shift_label}
+                  </p>
 
-                <p className="text-sm text-slate-700">
-                  Employee Off: {shift.employee_off}
-                </p>
+                  <p className="text-sm text-slate-700">
+                    {shift.shift_date}
+                  </p>
 
-                <p className="text-sm text-slate-700">
-                  Role: {roleGroupMap.get(shift.role_group_id) ?? ''}
-                </p>
+                  <p className="text-sm text-slate-700">
+                    Employee Off: {shift.employee_off}
+                  </p>
 
-                <p className="text-sm text-slate-700">
-                  Held By:{' '}
-                  {shift.held_by
-                    ? profileMap.get(shift.held_by) ?? 'Unknown'
-                    : '—'}
-                </p>
+                  <p className="text-sm text-slate-700">
+                    Role: {roleGroupMap.get(shift.role_group_id) ?? ''}
+                  </p>
 
-                <p className="text-sm text-slate-600">
-                  Not Available: {notAvailableMap.get(shift.id) ?? 0}
-                </p>
+                  <p className="text-sm text-slate-700">
+                    Held By:{' '}
+                    {shift.held_by
+                      ? profileMap.get(shift.held_by) ?? 'Unknown'
+                      : '—'}
+                  </p>
+
+                  <p className="text-sm text-slate-600">
+                    Not Available: {notAvailableMap.get(shift.id) ?? 0}
+                  </p>
+
+                  {notAvailableNames.length > 0 ? (
+                    <p className="text-sm text-slate-600">
+                      Not Available By: {notAvailableNames.join(', ')}
+                    </p>
+                  ) : null}
+
+                  {shift.notes ? (
+                    <p className="text-sm text-slate-600">
+                      Notes: {shift.notes}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="mt-4">
+                  <ReviewActions shiftId={shift.id} />
+                </div>
               </div>
-
-              <div className="mt-4">
-                <ReviewActions shiftId={shift.id} />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </main>

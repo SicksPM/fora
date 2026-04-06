@@ -70,10 +70,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
+    await adminSupabase.from('shift_audit_log').insert({
+      shift_id,
+      action: 'approve',
+      actor_user_id: user.id,
+      target_user_id: shift.held_by,
+      metadata: {},
+    })
+
     return NextResponse.json({ success: true })
   }
 
   if (action === 'reject') {
+    const heldBy = shift.held_by
+
     const { error } = await adminSupabase
       .from('shifts')
       .update({
@@ -88,6 +98,14 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
+
+    await adminSupabase.from('shift_audit_log').insert({
+      shift_id,
+      action: 'reject',
+      actor_user_id: user.id,
+      target_user_id: heldBy,
+      metadata: {},
+    })
 
     return NextResponse.json({ success: true })
   }

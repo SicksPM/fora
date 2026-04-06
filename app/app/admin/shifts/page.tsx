@@ -24,7 +24,17 @@ type NotAvailableCount = {
   count: number
 }
 
+type NotAvailableRow = {
+  shift_id: number
+  user_id: string
+}
+
 type Profile = {
+  id: string
+  full_name: string
+}
+
+type Employee = {
   id: string
   full_name: string
 }
@@ -86,6 +96,7 @@ export default async function AdminShiftsPage() {
   )
 
   let notAvailableMap = new Map<number, number>()
+  let notAvailableRows: NotAvailableRow[] = []
 
   const shiftIds = shifts.map((shift) => shift.id)
 
@@ -103,6 +114,13 @@ export default async function AdminShiftsPage() {
     notAvailableMap = new Map(
       counts.map((countRow) => [countRow.shift_id, countRow.count])
     )
+
+    const { data: notAvailableData } = await supabase
+      .from('shift_not_available')
+      .select('shift_id, user_id')
+      .in('shift_id', shiftIds)
+
+    notAvailableRows = (notAvailableData ?? []) as NotAvailableRow[]
   }
 
   const profileIds = [
@@ -111,6 +129,7 @@ export default async function AdminShiftsPage() {
         .flatMap((shift) => [shift.held_by, shift.confirmed_user_id])
         .filter(Boolean)
     ),
+    ...new Set(notAvailableRows.map((row) => row.user_id)),
   ] as string[]
 
   let profileMap = new Map<string, string>()
@@ -123,10 +142,28 @@ export default async function AdminShiftsPage() {
 
     const profiles: Profile[] = (profilesData ?? []) as Profile[]
 
-    profileMap = new Map(
-      profiles.map((p) => [p.id, p.full_name])
-    )
+    profileMap = new Map(profiles.map((p) => [p.id, p.full_name]))
   }
+
+  const notAvailableNamesByShift = new Map<number, string[]>()
+
+  for (const row of notAvailableRows) {
+    const current = notAvailableNamesByShift.get(row.shift_id) ?? []
+    const name = profileMap.get(row.user_id) ?? 'Unknown'
+    current.push(name)
+    notAvailableNamesByShift.set(row.shift_id, current)
+  }
+
+  let employees: Employee[] = []
+
+  const { data: employeeData } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .eq('access_role', 'employee')
+    .eq('is_active', true)
+    .order('full_name', { ascending: true })
+
+  employees = (employeeData ?? []) as Employee[]
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -166,6 +203,8 @@ export default async function AdminShiftsPage() {
                 <th className="px-4 py-3 text-left font-medium text-slate-600">Held By</th>
                 <th className="px-4 py-3 text-left font-medium text-slate-600">Confirmed</th>
                 <th className="px-4 py-3 text-left font-medium text-slate-600">Not Available</th>
+                <th className="px-4 py-3 text-left font-medium text-slate-600">Not Available By</th>
+                <th className="px-4 py-3 text-left font-medium text-slate-600">Override</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -188,6 +227,38 @@ export default async function AdminShiftsPage() {
                   </td>
                   <td className="px-4 py-3">
                     {notAvailableMap.get(shift.id) ?? 0}
+                  </td>
+                  <td className="px-4 py-3">
+                    {(notAvailableNamesByShift.get(shift.id) ?? []).join(', ')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <form
+                      action="/api/admin/shifts/override"
+                      method="post"
+                      className="flex gap-2"
+                    >
+                      <input type="hidden" name="shift_id" value={shift.id} />
+
+                      <select
+                        name="user_id"
+                        className="border border-slate-300 rounded px-2 py-1 text-sm"
+                        defaultValue=""
+                      >
+                        <option value="">Select</option>
+                        {employees.map((emp) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.full_name}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="submit"
+                        className="bg-slate-900 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Confirm
+                      </button>
+                    </form>
                   </td>
                 </tr>
               ))}

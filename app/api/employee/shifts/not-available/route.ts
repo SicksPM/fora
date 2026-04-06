@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
+import { adminSupabase } from '@/lib/supabase/admin'
 
 export async function POST(request: Request) {
   const supabase = await createServerClient()
@@ -55,6 +56,14 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
+
+  await adminSupabase.from('shift_audit_log').insert({
+    shift_id,
+    action: 'not_available',
+    actor_user_id: user.id,
+    target_user_id: user.id,
+    metadata: note ? { note } : {},
+  })
 
   return NextResponse.json({ success: true })
 }

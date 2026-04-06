@@ -83,5 +83,13 @@ export async function POST(request: Request) {
     )
   }
 
+  await adminSupabase.from('shift_audit_log').insert({
+    shift_id,
+    action: 'claim',
+    actor_user_id: user.id,
+    target_user_id: user.id,
+    metadata: {},
+  })
+
   return NextResponse.json({ success: true })
 }
