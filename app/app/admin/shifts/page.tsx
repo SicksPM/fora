@@ -204,6 +204,8 @@ export default async function AdminShiftsPage() {
                 <th className="px-4 py-3 text-left font-medium text-slate-600">Confirmed</th>
                 <th className="px-4 py-3 text-left font-medium text-slate-600">Not Available</th>
                 <th className="px-4 py-3 text-left font-medium text-slate-600">Not Available By</th>
+                <th className="px-4 py-3 text-left font-medium text-slate-600">Edit</th>
+                <th className="px-4 py-3 text-left font-medium text-slate-600">Delete</th>
                 <th className="px-4 py-3 text-left font-medium text-slate-600">Override</th>
               </tr>
             </thead>
@@ -230,6 +232,28 @@ export default async function AdminShiftsPage() {
                   </td>
                   <td className="px-4 py-3">
                     {(notAvailableNamesByShift.get(shift.id) ?? []).join(', ')}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/app/admin/shifts/edit/${shift.id}`}
+                      className="rounded-md border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-100"
+                    >
+                      Edit
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <form
+                      action="/api/admin/shifts/delete"
+                      method="post"
+                    >
+                      <input type="hidden" name="shift_id" value={shift.id} />
+                      <button
+                        type="submit"
+                        className="rounded-md border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </form>
                   </td>
                   <td className="px-4 py-3">
                     <form
